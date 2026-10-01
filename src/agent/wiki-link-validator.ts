@@ -233,7 +233,7 @@ async function validateLink(
     if (!anchor) {
       return null;
     }
-    if (!sourceAnchors.has(decodeURIComponent(anchor))) {
+    if (!sourceAnchors.has(decodeAnchor(anchor))) {
       return {
         href,
         line,
@@ -296,7 +296,7 @@ async function validateLink(
 
   const targetContent = await readText(backend, targetPath);
   const targetAnchors = buildHeadingAnchors(extractHeadings(targetContent));
-  if (!targetAnchors.has(decodeURIComponent(anchor))) {
+  if (!targetAnchors.has(decodeAnchor(anchor))) {
     return {
       href,
       line,
@@ -445,6 +445,20 @@ function parseLinkDestination(rawHref: string): {
     anchor: withoutTitle.slice(hashIndex + 1),
     path: withoutTitle.slice(0, hashIndex),
   };
+}
+
+/**
+ * Percent-decodes a heading anchor for comparison against heading slugs. A
+ * malformed escape (e.g. `#100%-coverage`) is kept as-is so it fails the
+ * membership check and is stamped, rather than throwing a `URIError` that
+ * would fail the whole run.
+ */
+function decodeAnchor(anchor: string): string {
+  try {
+    return decodeURIComponent(anchor);
+  } catch {
+    return anchor;
+  }
 }
 
 /**

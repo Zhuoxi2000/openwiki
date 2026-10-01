@@ -332,6 +332,54 @@ describe("validateWikiInternalLinks", () => {
     expect(report.stampedFiles).toEqual([]);
   });
 
+  test("stamps an anchor with a malformed percent escape instead of throwing", async () => {
+    const { backend, rootDir } = await setupWiki();
+    await backend.write(
+      "/openwiki/testing.md",
+      "# Testing\n\n## 100% coverage\n\nSee [coverage](#100%-coverage).\n",
+    );
+
+    await expect(
+      validateWikiInternalLinks(backend, "repository"),
+    ).resolves.toMatchObject({
+      issuesFound: 1,
+      stampedFiles: ["testing.md"],
+    });
+    const after = await readFile(
+      path.join(rootDir, "openwiki/testing.md"),
+      "utf8",
+    );
+    expect(after).toContain(
+      'heading anchor "100%-coverage" does not exist in /openwiki/testing.md',
+    );
+  });
+
+  test("stamps a malformed percent escape in an anchor on another page", async () => {
+    const { backend, rootDir } = await setupWiki();
+    await backend.write(
+      "/openwiki/quickstart.md",
+      "See [coverage](./testing.md#100%-coverage).\n",
+    );
+    await backend.write(
+      "/openwiki/testing.md",
+      "# Testing\n\n## 100% coverage\n",
+    );
+
+    await expect(
+      validateWikiInternalLinks(backend, "repository"),
+    ).resolves.toMatchObject({
+      issuesFound: 1,
+      stampedFiles: ["quickstart.md"],
+    });
+    const after = await readFile(
+      path.join(rootDir, "openwiki/quickstart.md"),
+      "utf8",
+    );
+    expect(after).toContain(
+      'heading anchor "100%-coverage" does not exist in "./testing.md"',
+    );
+  });
+
   test("accepts directory links", async () => {
     const { backend, rootDir } = await setupWiki();
     await mkdir(path.join(rootDir, "openwiki", "agent"), { recursive: true });
